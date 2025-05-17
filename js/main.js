@@ -2,7 +2,10 @@ import { sounds } from './sounds.js';
 import { WaveformVisualizer } from './WaveformVisualizer.js';
 import { Soundboard } from './Soundboard.js';
 
+// Remove the main waveform visualizer from the center
 const waveformCanvas = document.getElementById('waveformCanvas');
+if (waveformCanvas) waveformCanvas.style.display = 'none';
+
 const soundButtonsDiv = document.getElementById('soundButtons');
 
 const visualizer = new WaveformVisualizer(waveformCanvas);
@@ -34,12 +37,19 @@ function setupSoundboard() {
             btn.addEventListener('click', () => {
                 if (precomputedData[sound.id]) {
                     visualizer.blendTo(precomputedData[sound.id]);
+                    animateVerticalWaveforms(precomputedData[sound.id]);
                 }
             });
         }
         if (audio) {
             audio.addEventListener('ended', () => {
                 visualizer.stop();
+                if (verticalWaveformLastFrame) {
+                    fallbackVerticalWaveformsToBaseline(verticalWaveformLastFrame);
+                } else {
+                    if (leftWaveformVisualizer) leftWaveformVisualizer.drawVerticalWaveform(new Array(128).fill(0), 'left');
+                    if (rightWaveformVisualizer) rightWaveformVisualizer.drawVerticalWaveform(new Array(128).fill(0), 'right');
+                }
             });
         }
     });
@@ -49,8 +59,69 @@ function setupSoundboard() {
         const sound = sounds.find(s => s.key === pressedKey);
         if (sound && precomputedData[sound.id]) {
             visualizer.blendTo(precomputedData[sound.id]);
+            animateVerticalWaveforms(precomputedData[sound.id]);
         }
     });
+}
+
+// --- Add this after the main waveform visualizer setup ---
+// Setup for left and right vertical waveform canvases
+const leftWaveformCanvas = document.getElementById('leftWavefront');
+const rightWaveformCanvas = document.getElementById('rightWavefront');
+
+const leftWaveformVisualizer = leftWaveformCanvas ? new WaveformVisualizer(leftWaveformCanvas) : null;
+const rightWaveformVisualizer = rightWaveformCanvas ? new WaveformVisualizer(rightWaveformCanvas) : null;
+
+let verticalWaveformAnimationId = null;
+let verticalWaveformLastFrame = null;
+
+function animateVerticalWaveforms(precomputedData) {
+    if (!precomputedData) return;
+    let frame = 0;
+    let running = true;
+    function drawFrame() {
+        if (!running) return;
+        const currentFrame = precomputedData[frame];
+        verticalWaveformLastFrame = currentFrame;
+        if (leftWaveformVisualizer) {
+            leftWaveformVisualizer.drawVerticalWaveform(currentFrame, 'left');
+        }
+        if (rightWaveformVisualizer) {
+            rightWaveformVisualizer.drawVerticalWaveform(currentFrame, 'right');
+        }
+        frame++;
+        if (frame < precomputedData.length) {
+            verticalWaveformAnimationId = requestAnimationFrame(drawFrame);
+        } else {
+            // Start fallback to baseline after last frame
+            fallbackVerticalWaveformsToBaseline(currentFrame);
+        }
+    }
+    drawFrame();
+    animateVerticalWaveforms.stop = () => { running = false; };
+}
+
+function fallbackVerticalWaveformsToBaseline(lastFrame) {
+    const frames = 40;
+    let progress = 0;
+    const zeroFrame = new Array(lastFrame.length).fill(0);
+    function ease(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+    function drawFallback() {
+        const t = progress / frames;
+        const alpha = ease(t);
+        const blend = lastFrame.map(v => v * (1 - alpha));
+        if (leftWaveformVisualizer) leftWaveformVisualizer.drawVerticalWaveform(blend, 'left');
+        if (rightWaveformVisualizer) rightWaveformVisualizer.drawVerticalWaveform(blend, 'right');
+        progress++;
+        if (progress <= frames) {
+            verticalWaveformAnimationId = requestAnimationFrame(drawFallback);
+        } else {
+            if (leftWaveformVisualizer) leftWaveformVisualizer.drawVerticalWaveform(zeroFrame, 'left');
+            if (rightWaveformVisualizer) rightWaveformVisualizer.drawVerticalWaveform(zeroFrame, 'right');
+            verticalWaveformLastFrame = zeroFrame;
+        }
+    }
+    drawFallback();
 }
 
 window.onload = () => {

@@ -48,6 +48,19 @@ def interpolate_frames(frames, factor=2):
         interp[:, i] = np.interp(x_new, x_old, arr[:, i])
     return interp.tolist()
 
+def smooth_bspline(frames, num_points=128):
+    # Interpolate each frame to a fixed number of points using B-spline (very smooth)
+    from scipy.interpolate import make_interp_spline
+    arr = np.array(frames)
+    n_frames, n_bins = arr.shape
+    x_old = np.linspace(0, 1, n_bins)
+    x_new = np.linspace(0, 1, num_points)
+    smoothed = []
+    for frame in arr:
+        spline = make_interp_spline(x_old, frame, k=3)
+        smoothed.append(spline(x_new))
+    return np.array(smoothed)
+
 def analyze_wav(filepath):
     sr, data = wavfile.read(filepath)
     if data.ndim > 1:
@@ -62,11 +75,13 @@ def analyze_wav(filepath):
         frames.append(focused)
     # Interpolate frames for smoothness
     interp_frames = interpolate_frames(frames, factor=2)
+    # B-spline smoothing to 128 points per frame (ultra-smooth)
+    smooth_frames = smooth_bspline(interp_frames, num_points=128)
     # Normalize
-    norm_frames = normalize_frames(interp_frames)
+    norm_frames = normalize_frames(smooth_frames)
     # Moving average smoothing
-    smooth_frames = moving_average(norm_frames, window_size=3)
-    return smooth_frames
+    final_frames = moving_average(norm_frames, window_size=7)
+    return final_frames
 
 result = {}
 for fname in os.listdir(AUDIO_DIR):

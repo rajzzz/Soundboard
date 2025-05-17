@@ -8,10 +8,7 @@ export class Soundboard {
         sounds.forEach(sound => {
             const button = document.createElement('button');
             button.id = `button-${sound.id}`;
-            button.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white', 
-                'font-bold', 'py-4', 'px-6', 'rounded-lg', 'shadow-lg', 
-                'transition', 'duration-200', 'ease-in-out', 'transform', 
-                'hover:scale-105');
+            button.classList.add('sound-btn');
             button.textContent = `${sound.label} (${sound.key.toUpperCase()})`;
             button.dataset.soundId = sound.id;
             button.dataset.key = sound.key;
@@ -38,9 +35,17 @@ export class Soundboard {
                 this.playSound(soundToPlay.id);
                 const button = document.getElementById(`button-${soundToPlay.id}`);
                 if (button) {
-                    button.classList.add('ring-4', 'ring-blue-400');
+                    // Preserve existing box-shadow and add accent ring
+                    const prevBoxShadow = button.style.boxShadow || window.getComputedStyle(button).boxShadow || '';
+                    button.style.boxShadow = `${prevBoxShadow ? prevBoxShadow + ',' : ''}0 0 0 4px var(--accent-color)`;
                     setTimeout(() => {
-                        button.classList.remove('ring-4', 'ring-blue-400');
+                        // Remove only the accent ring, keep any other box-shadow
+                        const current = button.style.boxShadow.split(',').filter(s => !s.includes('var(--accent-color)')).join(',');
+                        if (current.trim()) {
+                            button.style.boxShadow = current;
+                        } else {
+                            button.style.removeProperty('boxShadow');
+                        }
                     }, 200);
                 }
             }
