@@ -3,15 +3,14 @@ import GlowBar from '../visualizers/GlowBar.js';
 import Looping from '../audio/Looping.js';
 
 export class Soundboard {
-    constructor(soundButtonsDiv, visualizer) {
+    constructor(soundButtonsDiv, visualizer, bpmInstance) {
         this.soundButtonsDiv = soundButtonsDiv;
         this.visualizer = visualizer;
-        this.bpm = new BPM();
+        this.bpm = bpmInstance; // Use the passed BPM instance
         this.glowBar = new GlowBar();
-        this.looping = new Looping(this.bpm);
+        this.looping = new Looping(this.bpm); // Pass the same BPM instance to Looping
 
-        // Bind the setupLoop function to the Soundboard instance
-        this.setupLoop = this.setupLoop.bind(this);
+        // this.setupLoop = this.setupLoop.bind(this); // No longer needed
     }
 
     createButtons(sounds) {
@@ -36,10 +35,12 @@ export class Soundboard {
                     }
                 });
 
-                if (isOtherButtonPressed) {
-                    this.clearLoop();
-                    return;
-                }
+                // if (isOtherButtonPressed) { // Removed for multi-loop
+                    // this.looping.clearAllLoops();
+                    // return;
+                // }
+
+                this.playSound(sound.id); // Play sound on initial mousedown
 
                 fillPercentage = 0;
                 button.classList.add('filling');
@@ -105,23 +106,28 @@ export class Soundboard {
     }
 
     toggleLoop(soundId, button) {
-        if (button.classList.contains('looping')) {
-            this.clearLoop();
+        // Check if this specific sound is currently part of the multi-loop
+        if (this.looping.isSoundLooping(soundId)) {
+            this.looping.removeSoundFromLoop(soundId);
             button.classList.remove('looping');
+            button.style.transform = ''; // Reset size
+            button.style.backgroundColor = ''; // Reset color
+            console.log(`Soundboard: Removed ${soundId} from loop.`);
         } else {
-            this.clearLoop();
-            this.setupLoop(soundId, this.glowBar);
+            // Add this sound to the multi-loop
+            // The `this.glowBar` is passed as the elementVisualizer for the priority sound.
+            // This assumes this.glowBar is the main glow bar instance.
+            this.looping.addSoundToLoop(soundId, this.glowBar);
             button.classList.add('looping');
+            button.style.transform = 'scale(1.2)'; // Size up
+            button.style.backgroundColor = 'var(--accent-color)'; // Make colorful
+            console.log(`Soundboard: Added ${soundId} to loop.`);
         }
     }
 
-    setupLoop(soundId, glowBar) {
-        this.looping.setupLoop(soundId, glowBar);
-    }
-
-    clearLoop() {
-        this.looping.clearLoop();
-    }
+    // The old setupLoop and clearLoop methods are removed.
+    // Direct calls to this.looping.addSoundToLoop, this.looping.removeSoundFromLoop,
+    // or this.looping.clearAllLoops (if a global clear is needed) should be used.
 
     setupHotkeys(sounds) {
         const keyTimers = {};
@@ -135,18 +141,19 @@ export class Soundboard {
                 const button = document.getElementById(`button-${soundToPlay.id}`);
                 
                 // If another key is already being held down (looping)
-                if (activeButtons.size > 0 && !activeButtons.has(soundToPlay.id)) {
-                    this.clearLoop();
+                // if (activeButtons.size > 0 && !activeButtons.has(soundToPlay.id)) { // Removed for multi-loop
+                    // this.looping.clearAllLoops();
                     // Clear any existing fill timer for this button
-                    if (keyTimers[soundToPlay.id]) {
-                        clearInterval(keyTimers[soundToPlay.id]);
-                        delete keyTimers[soundToPlay.id];
-                        if (button) {
-                            button.classList.remove('filling');
-                            button.style.background = '';
-                        }
+                // }
+                if (keyTimers[soundToPlay.id]) { // This check should remain if fill timer needs clearing independently
+                    clearInterval(keyTimers[soundToPlay.id]);
+                    delete keyTimers[soundToPlay.id];
+                    if (button) {
+                        button.classList.remove('filling');
+                        button.style.background = '';
                     }
                 }
+                // Extra braces removed from here
 
                 activeButtons.add(soundToPlay.id);
                 this.playSound(soundToPlay.id);
@@ -195,17 +202,21 @@ export class Soundboard {
     }
 
     toggleLoop(soundId, button) {
-        if (button.classList.contains('looping')) {
-            this.clearLoop();
+        // Check if this specific sound is currently part of the multi-loop
+        if (this.looping.isSoundLooping(soundId)) {
+            this.looping.removeSoundFromLoop(soundId);
             button.classList.remove('looping');
             button.style.transform = ''; // Reset size
             button.style.backgroundColor = ''; // Reset color
+            console.log(`Soundboard (hotkey): Removed ${soundId} from loop.`);
         } else {
-            this.clearLoop();
-            this.setupLoop(soundId, this.glowBar);
+            // Add this sound to the multi-loop
+            // The `this.glowBar` is passed as the elementVisualizer for the priority sound.
+            this.looping.addSoundToLoop(soundId, this.glowBar);
             button.classList.add('looping');
             button.style.transform = 'scale(1.2)'; // Size up
             button.style.backgroundColor = 'var(--accent-color)'; // Make colorful
+            console.log(`Soundboard (hotkey): Added ${soundId} to loop.`);
         }
     }
 }

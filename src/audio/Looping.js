@@ -1,34 +1,63 @@
 import BPM from '../ui/BPM.js';
 
-let loopingSound = null;
-let audioContext = null;
+let audioContext = null; // Stays module-level, or could be on 'this' if preferred
 
 class Looping {
-    constructor(bpm) {
-        this.bpm = bpm;
+    constructor(bpmInstance) {
+        this.bpm = bpmInstance; // Instance of BPM class
         this.bufferCache = new Map();
-        this.isContextInitialized = false;
+        this.isContextInitialized = false; // For AudioContext
+
+        // State for multi-looping
+        this.activeLoopQueue = []; // Array of { soundId, audioBuffer, order, elementVisualizer }
+                                   // 'order' is its original 0-indexed position when added.
+                                   // 'elementVisualizer' could be a specific GlowBar for the button.
+
+        this.isMultiLoopRunning = false;   // True if the main loop interval is active
+        this.mainLoopTimeoutId = null;     // Timer ID for the main beat scheduling (using setTimeout for precision)
+        this.bpmUpdateIntervalId = null; // Timer ID for checking BPM changes
+
+        this.nextBeatCycleStartTime = 0; // audioContext.currentTime for the start of the next beat cycle
+
+        this.priorityVisualizerGlowBar = null; // The GlowBar instance for the overall beat visualization,
+                                               // taken from the first sound added to the loop.
+        this.lastKnownBpm = 0;
+
+        this.activeAudioSources = []; // To keep track of all currently playing AudioBufferSourceNodes for cleanup
     }
 
     async ensureAudioContext() {
+        // Uses this.isContextInitialized
         if (!this.isContextInitialized) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            this.isContextInitialized = true;
+            // Initialize audioContext if it hasn't been already or if it's closed
+            if (!audioContext || audioContext.state === 'closed') {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('AudioContext initialized or re-initialized.');
+            }
+            this.isContextInitialized = true; // Mark as attempted initialization
         }
         
-        if (audioContext.state === 'suspended') {
+        if (audioContext && audioContext.state === 'suspended') {
             try {
                 await audioContext.resume();
+                console.log('AudioContext resumed.');
             } catch (error) {
                 console.warn('AudioContext resume failed:', error);
+                // Potentially set this.isContextInitialized = false here if resume is critical
             }
         }
         return audioContext;
     }
 
     async loadAudioBuffer(url) {
+        // Uses this.ensureAudioContext and this.bufferCache
         await this.ensureAudioContext();
         
+        if (!audioContext || audioContext.state === 'closed') {
+            console.error('Cannot load audio buffer, AudioContext is not running.');
+            return null;
+        }
+
         if (this.bufferCache.has(url)) {
             return this.bufferCache.get(url);
         }
@@ -45,186 +74,236 @@ class Looping {
         }
     }
 
-    scheduleLoop(audioBuffer, startTime, interval) {
-        if (!audioContext || audioContext.state !== 'running') return null;
+    async addSoundToLoop(soundId, elementVisualizer) {
+        await this.ensureAudioContext();
+        if (!audioContext || audioContext.state !== 'running') {
+            console.error('AudioContext not running, cannot add sound to loop.');
+            return;
+        }
 
-        console.log(`Creating new audio source, scheduled for time ${startTime}, interval ${interval}s`);
-        
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+        const originalAudioElement = document.getElementById(soundId);
+        if (!originalAudioElement) {
+            console.error(`Audio element with ID ${soundId} not found.`);
+            return;
+        }
 
-        // Store startTime for BPM changes
-        source.startTime = startTime;
-        
         try {
-            source.start(startTime);
-            console.log(`Source started, current audio context time: ${audioContext.currentTime}`);
-
-            // Schedule glow effect to match audio precisely
-            if (loopingSound && loopingSound.glowBar) {
-                loopingSound.glowBar.schedulePulse(startTime, interval, audioContext);
-            }
-        } catch (error) {
-            console.error('Error starting audio source:', error);
-            return null;
-        }
-
-        if (loopingSound) {
-            loopingSound.sources.push(source);
-            console.log(`Source added to loop sources, total sources: ${loopingSound.sources.length}`);
-        }
-
-        // Schedule the next loop iteration - only if no BPM change is in progress
-        if (loopingSound && loopingSound.isLooping) {
-            // Store the scheduled next start time on the loopingSound object
-            loopingSound.nextScheduledTime = startTime + interval;
-            
-            // Use a timeout that's slightly before the next beat to check if we should continue
-            const timeUntilNextBeat = (startTime + interval) - audioContext.currentTime;
-            const checkTime = Math.max(timeUntilNextBeat - 0.05, 0) * 1000; // Convert to ms, check 50ms before
-            
-            setTimeout(() => {
-                // Only schedule the next iteration if we're still looping and no BPM change occurred
-                if (loopingSound && loopingSound.isLooping) {
-                    this.scheduleLoop(audioBuffer, loopingSound.nextScheduledTime, interval);
-                }
-            }, checkTime);
-        }
-
-        // Clean up source after it finishes
-        source.onended = () => {
-            if (loopingSound && loopingSound.sources) {
-                const index = loopingSound.sources.indexOf(source);
-                if (index > -1) {
-                    loopingSound.sources.splice(index, 1);
-                    console.log(`Source completed and removed, remaining sources: ${loopingSound.sources.length}`);
-                }
-            }
-        };
-
-        return source;
-    }
-
-    async setupLoop(soundId, glowBar) {
-        try {
-            await this.ensureAudioContext();
-            
-            const originalAudio = document.getElementById(soundId);
-            const bpm = this.bpm.getBPM();
-            const interval = 60 / bpm; // interval in seconds
-
-            // Clean up any existing loop
-            if (loopingSound) {
-                await this.clearLoop();
+            const audioBuffer = await this.loadAudioBuffer(originalAudioElement.src);
+            if (!audioBuffer) {
+                console.error(`Failed to load audio buffer for ${soundId}`);
+                return;
             }
 
-            const audioBuffer = await this.loadAudioBuffer(originalAudio.src);
+            // Check if sound is already in the loop
+            if (this.activeLoopQueue.some(item => item.soundId === soundId)) {
+                console.log(`Sound ${soundId} is already in the loop.`);
+                return; // Or perhaps toggle/remove it, based on desired behavior
+            }
             
-            // Start the continuous glow effect
-            glowBar.glow(true);
-
-            loopingSound = {
+            const newLoopItem = {
                 soundId: soundId,
-                glowBar: glowBar,
-                isLooping: true,
-                sources: [],
-                lastBpm: bpm,
                 audioBuffer: audioBuffer,
-                nextScheduledTime: 0
+                order: this.activeLoopQueue.length, // This is its original add order
+                elementVisualizer: elementVisualizer // Specific visualizer for this sound's button/element
             };
 
-            // Initial schedule with a slight delay to ensure clean start
-            const startTime = audioContext.currentTime + 0.05;
-            loopingSound.nextScheduledTime = startTime;
-            
-            console.log(`Setting up initial loop at BPM ${bpm}, interval ${interval}s`);
-            const source = this.scheduleLoop(audioBuffer, startTime, interval);
-            if (!source) {
-                throw new Error('Failed to schedule initial audio');
+            if (this.activeLoopQueue.length === 0) {
+                this.priorityVisualizerGlowBar = elementVisualizer; // The first sound's visualizer sets the main glow
+                if (this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.glow === 'function') {
+                    this.priorityVisualizerGlowBar.glow(true); // Turn on continuous glow for the priority bar
+                }
             }
 
-            // Monitor BPM changes
-            loopingSound.bpmCheckInterval = setInterval(() => {
-                if (!loopingSound || !loopingSound.isLooping) return;
+            this.activeLoopQueue.push(newLoopItem);
+            console.log(`Sound ${soundId} added to loop. Queue size: ${this.activeLoopQueue.length}`);
 
-                const currentBpm = this.bpm.getBPM();
-                if (currentBpm !== loopingSound.lastBpm) {
-                    console.log(`BPM changed from ${loopingSound.lastBpm} to ${currentBpm}`);
-                    console.log(`Active sources before BPM change: ${loopingSound.sources.length}`);
-                    
-                    // Calculate new interval based on the new BPM
-                    loopingSound.lastBpm = currentBpm;
-                    const newInterval = 60 / currentBpm;
-                    
-                    // Stop all currently scheduled sources to prevent audio overlap
-                    if (loopingSound.sources && loopingSound.sources.length > 0) {
-                        console.log(`Stopping ${loopingSound.sources.length} active sources due to BPM change`);
-                        loopingSound.sources.forEach(source => {
-                            try {
-                                source.stop(0);
-                            } catch (e) {
-                                // Ignore errors from already stopped sources
-                            }
-                        });
-                        // Clear the sources array
-                        loopingSound.sources = [];
-                    }
-                    
-                    // Reset the GlowBar pulses to match the new BPM
-                    if (loopingSound.glowBar) {
-                        console.log('Resetting GlowBar pulses for new BPM');
-                        // Stop existing pulses but keep the glow bar in "loop mode"
-                        loopingSound.glowBar.stopPulse(true); // true = keep looping state
-                    }
-                    
-                    // Schedule next sound with new interval - using a small delay for clean transition
-                    const currentTime = audioContext.currentTime;
-                    // Use a clean 100ms delay for the next beat to start
-                    const nextStartTime = currentTime + 0.1;
-                    console.log(`Scheduling new loop at time ${nextStartTime} with interval ${newInterval}`);
-                    const source = this.scheduleLoop(audioBuffer, nextStartTime, newInterval);
-                    
-                    // Restart the glow bar pulses with the new interval
-                    if (loopingSound.glowBar && source) {
-                        loopingSound.glowBar.schedulePulse(nextStartTime, newInterval, audioContext);
-                    }
-                    
-                    console.log(`Active sources after BPM change: ${loopingSound.sources.length}`);
-                }
-            }, 50);
+            if (!this.isMultiLoopRunning) {
+                this._startMainLoopScheduler();
+            }
+            // If already running, the next _executeBeatCycle will pick up the new sound.
 
         } catch (error) {
-            console.error('Error setting up audio loop:', error);
-            this.clearLoop();
-            throw error;
+            console.error(`Error adding sound ${soundId} to loop:`, error);
         }
     }
 
-    clearLoop() {
-        if (loopingSound) {
-            loopingSound.isLooping = false;
-            if (loopingSound.sources) {
-                loopingSound.sources.forEach(source => {
-                    try {
-                        source.stop(0);
-                    } catch (e) {
-                        // Ignore errors from already stopped sources
-                    }
+    removeSoundFromLoop(soundId) {
+        const indexToRemove = this.activeLoopQueue.findIndex(item => item.soundId === soundId);
+
+        if (indexToRemove === -1) {
+            console.log(`Sound ${soundId} not found in active loop queue.`);
+            return;
+        }
+
+        const removedItem = this.activeLoopQueue.splice(indexToRemove, 1)[0];
+        console.log(`Sound ${soundId} removed from loop. Queue size: ${this.activeLoopQueue.length}`);
+
+        // Re-index the 'order' of remaining items
+        // The 'order' property should reflect the current position in the queue for priority glow.
+        this.activeLoopQueue.forEach((item, index) => {
+            item.order = index;
+        });
+
+        if (this.activeLoopQueue.length === 0) {
+            this._stopMainLoopScheduler();
+            // No need to explicitly set this.priorityVisualizerGlowBar to null here,
+            // _stopMainLoopScheduler handles turning off its glow.
+        } else {
+            // If the removed item was the priority (order 0 based on current queue),
+            // or if the first item was removed, update the priority visualizer.
+            if (indexToRemove === 0) {
+                 if (removedItem.elementVisualizer && typeof removedItem.elementVisualizer.glow === 'function') {
+                    removedItem.elementVisualizer.glow(false); // Turn off old priority glow if it was unique
+                 }
+                this.priorityVisualizerGlowBar = this.activeLoopQueue[0].elementVisualizer;
+                if (this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.glow === 'function') {
+                    this.priorityVisualizerGlowBar.glow(true); // Turn on new priority glow
+                }
+            }
+        }
+    }
+    
+    _startMainLoopScheduler() {
+        if (this.isMultiLoopRunning || !audioContext || audioContext.state !== 'running') {
+            return;
+        }
+        this.isMultiLoopRunning = true;
+        this.lastKnownBpm = this.bpm.getBPM();
+        
+        // Initial scheduling with a slight delay
+        this.nextBeatCycleStartTime = audioContext.currentTime + 0.05;
+        this._scheduleNextBeatCycle();
+        console.log('Multi-loop scheduler started.');
+
+        // Monitor BPM changes
+        if (this.bpmUpdateIntervalId) clearInterval(this.bpmUpdateIntervalId);
+        this.bpmUpdateIntervalId = setInterval(() => {
+            if (!this.isMultiLoopRunning) return;
+
+            const currentBpm = this.bpm.getBPM();
+            if (currentBpm !== this.lastKnownBpm) {
+                console.log(`BPM changed from ${this.lastKnownBpm} to ${currentBpm}. Rescheduling loop.`);
+                this.lastKnownBpm = currentBpm;
+
+                this.activeAudioSources.forEach(source => {
+                    try { source.stop(0); } catch (e) { /* ignore */ }
                 });
+                this.activeAudioSources = [];
+                if (this.mainLoopTimeoutId) clearTimeout(this.mainLoopTimeoutId);
+
+                if (this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.stopPulse === 'function') {
+                    this.priorityVisualizerGlowBar.stopPulse(true);
+                }
+                
+                this.nextBeatCycleStartTime = audioContext.currentTime + 0.1;
+                this._scheduleNextBeatCycle();
             }
-            if (loopingSound.bpmCheckInterval) {
-                clearInterval(loopingSound.bpmCheckInterval);
-            }
-            if (loopingSound.glowBar) {
-                loopingSound.glowBar.glow(false);
-            }
-            loopingSound = null;
-        }
+        }, 100);
     }
 
-    isLooping() {
-        return loopingSound !== null && loopingSound.isLooping;
+    _stopMainLoopScheduler() {
+        this.isMultiLoopRunning = false;
+        if (this.mainLoopTimeoutId) {
+            clearTimeout(this.mainLoopTimeoutId);
+            this.mainLoopTimeoutId = null;
+        }
+        if (this.bpmUpdateIntervalId) {
+            clearInterval(this.bpmUpdateIntervalId);
+            this.bpmUpdateIntervalId = null;
+        }
+        this.activeAudioSources.forEach(source => {
+            try { source.stop(0); } catch (e) { /* ignore */ }
+        });
+        this.activeAudioSources = [];
+
+        if (this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.glow === 'function') {
+            this.priorityVisualizerGlowBar.glow(false);
+        }
+        if (this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.stopPulse === 'function') {
+            this.priorityVisualizerGlowBar.stopPulse(false);
+        }
+        this.priorityVisualizerGlowBar = null; // Clear the reference
+        console.log('Multi-loop scheduler stopped.');
+    }
+
+    _scheduleNextBeatCycle() {
+        if (!this.isMultiLoopRunning || this.activeLoopQueue.length === 0 || !audioContext || audioContext.state !== 'running') {
+            this._stopMainLoopScheduler();
+            return;
+        }
+
+        const timeUntilNextCycle = (this.nextBeatCycleStartTime - audioContext.currentTime) * 1000;
+
+        if (this.mainLoopTimeoutId) clearTimeout(this.mainLoopTimeoutId);
+
+        this.mainLoopTimeoutId = setTimeout(() => {
+            this._executeBeatCycle();
+        }, Math.max(0, timeUntilNextCycle));
+    }
+
+    _executeBeatCycle() {
+        if (!this.isMultiLoopRunning || this.activeLoopQueue.length === 0 || !audioContext || audioContext.state !== 'running') {
+            return;
+        }
+
+        const currentBpm = this.bpm.getBPM();
+        const beatInterval = 60 / currentBpm;
+        const numSounds = this.activeLoopQueue.length;
+        const subInterval = numSounds > 0 ? beatInterval / numSounds : beatInterval;
+
+        this.activeAudioSources = this.activeAudioSources.filter(s => false); // Clear old, will re-add active
+
+        for (let i = 0; i < numSounds; i++) {
+            const item = this.activeLoopQueue[i];
+            const playAt = this.nextBeatCycleStartTime + (i * subInterval);
+
+            const source = audioContext.createBufferSource();
+            source.buffer = item.audioBuffer;
+            source.connect(audioContext.destination);
+            
+            try {
+                source.start(playAt);
+                this.activeAudioSources.push(source);
+                source.onended = () => {
+                    const index = this.activeAudioSources.indexOf(source);
+                    if (index > -1) this.activeAudioSources.splice(index, 1);
+                };
+
+                // Glow logic: only for the sound that is currently designated as priority (first in queue - order 0)
+                if (item.order === 0 && this.priorityVisualizerGlowBar && typeof this.priorityVisualizerGlowBar.schedulePulse === 'function') {
+                    this.priorityVisualizerGlowBar.schedulePulse(playAt, beatInterval, audioContext);
+                }
+
+            } catch (error) {
+                console.error(`Error starting sound ${item.soundId} in loop:`, error);
+            }
+        }
+        
+        this.nextBeatCycleStartTime += beatInterval;
+        this._scheduleNextBeatCycle();
+    }
+
+    // Public method to clear all loops, effectively an alias or wrapper for _stopMainLoopScheduler
+    clearAllLoops() { // Renamed from clearLoop for clarity if it clears everything
+        this._stopMainLoopScheduler();
+        this.activeLoopQueue = []; // Ensure queue is also cleared
+        // this.priorityVisualizerGlowBar is nulled in _stopMainLoopScheduler
+        console.log('All loops cleared.');
+    }
+    
+    // Kept clearLoop for backward compatibility if Soundboard.js uses it, but it does the same.
+    clearLoop() {
+        this.clearAllLoops();
+    }
+
+
+    isLooping() { // Checks if any sound is actively looping
+        return this.isMultiLoopRunning && this.activeLoopQueue.length > 0;
+    }
+
+    // New method to check if a specific sound is in the loop
+    isSoundLooping(soundId) {
+        return this.activeLoopQueue.some(item => item.soundId === soundId);
     }
 }
 

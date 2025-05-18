@@ -19,12 +19,12 @@ fetch('./assets/sounds/precomputed_frequencies.json')
     .then(res => res.json())
     .then(data => {
         precomputedData = data;
-        soundboard = new Soundboard(soundButtonsDiv, visualizer); // Initialize soundboard
+        soundboard = new Soundboard(soundButtonsDiv, visualizer, bpm); // Initialize soundboard with bpm
         setupSoundboard();
     })
     .catch(err => {
         console.error('Failed to load precomputed frequency data:', err);
-        soundboard = new Soundboard(soundButtonsDiv, visualizer); // Initialize soundboard even on error
+        soundboard = new Soundboard(soundButtonsDiv, visualizer, bpm); // Initialize soundboard even on error with bpm
         setupSoundboard(); // fallback, still allow UI
     });
 
