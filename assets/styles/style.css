@@ -1,7 +1,7 @@
 :root {
     --primary-color: #F2F2F2; /* background */
     --secondary-color: #000000;; /* buttons, waveform */
-    --accent-color: rgb(196, 218, 170); /* button border */
+    --accent-color: rgb(244, 155, 107); /* button border */
 }
 
 .glow {
@@ -10,7 +10,7 @@
 }
 
 .glow.active {
-    box-shadow: 0 0 80px var(--accent-color);
+    box-shadow: 0 0 120px var(--accent-color);
 }
 #waveformCanvas {
     background-color: var(--primary-color);
@@ -46,8 +46,18 @@ body {
     text-shadow:
         2px 1.5px 0 var(--accent-color);
 }
+
+.accent-backdrop-active {
+    text-shadow:
+        4px 3px 0 var(--accent-color);
+}
+
 .accent-backdrop::before {
     display: none;
+}
+
+.bg-accent {
+    background-color: var(--accent-color);
 }
 
 .shake {

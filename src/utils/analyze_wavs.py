@@ -4,7 +4,7 @@ import numpy as np
 from scipy.io import wavfile
 import scipy.signal
 
-AUDIO_DIR = "sounds/sample"
+AUDIO_DIR = "../assets/sounds"
 OUTPUT_JSON = os.path.join(AUDIO_DIR, "precomputed_frequencies.json")
 FRAME_SIZE = 1024
 HOP_SIZE = 512

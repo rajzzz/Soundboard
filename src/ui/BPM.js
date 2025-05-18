@@ -1,6 +1,6 @@
 class BPM {
     constructor() {
-        this.bpm = 120; // Default BPM
+        this.bpm = 80; // Default BPM
         this.bpmInput = document.getElementById('bpm');
         this.bpmUp = document.getElementById('bpmUp');
         this.bpmDown = document.getElementById('bpmDown');
