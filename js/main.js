@@ -1,6 +1,7 @@
 import { sounds } from './sounds.js';
 import { WaveformVisualizer } from './WaveformVisualizer.js';
 import { Soundboard } from './Soundboard.js';
+import BPM from './BPM.js';
 
 // Remove the main waveform visualizer from the center
 const waveformCanvas = document.getElementById('waveformCanvas');
@@ -11,6 +12,7 @@ const soundButtonsDiv = document.getElementById('soundButtons');
 const visualizer = new WaveformVisualizer(waveformCanvas);
 let precomputedData = {};
 let soundboard; // Declare soundboard variable
+const bpm = new BPM();
 
 // Load precomputed frequency data
 fetch('./sounds/sample/precomputed_frequencies.json')

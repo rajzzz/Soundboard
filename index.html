@@ -8,9 +8,15 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 <body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen p-4" style="background-color: var(--primary-color);">
-    <h1 class="text-4xl font-bold mb-8 accent-backdrop">Vibe Soundboard</h1>
+    <div class="fixed top-0 left-0 w-full flex items-center justify-center p-4" style="border: 2px solid var(--secondary-color);">
+        <button id="bpmDown" class="bg-transparent hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-l mr-2" style="color: var(--secondary-color); box-shadow: 0 0 10px var(--secondary-color); border: 2px solid var(--secondary-color);">-</button>
+        <input type="number" id="bpm" class="bg-transparent text-white text-center py-2 px-4 w-24" value="80" style="color: var(--secondary-color); box-shadow: 0 0 10px var(--secondary-color); border: 2px solid var(--secondary-color);">
+        <button id="bpmUp" class="bg-transparent hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-r ml-2" style="color: var(--secondary-color); box-shadow: 0 0 10px var(--secondary-color); border: 2px solid var(--secondary-color);">+</button>
+    </div>
+    <h1 class="text-4xl font-bold mb-8 accent-backdrop" style="margin-top: 6rem;">Vibe Soundboard</h1>
     <canvas id="waveformCanvas"></canvas>
     <div id="soundButtons" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8 w-full max-w-4xl"></div>
+
 
     <audio id="Kick" src="sounds/sample/Kick.wav"></audio>
     <audio id="Snare" src="sounds/sample/Snare.wav"></audio>
@@ -25,5 +31,7 @@
     </div>
 
     <script type="module" src="./js/main.js"></script>
+    <div class="fixed bottom-0 left-0 w-full h-1 bg-green-500"></div>
+    
 </body>
 </html>
