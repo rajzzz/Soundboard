@@ -14,7 +14,7 @@
         <button id="bpmUp" class="bg-transparent hover:bg-gray-600 text-black font-bold py-2 px-4 rounded-r ml-2" style="border-color: var(--accent-color); box-shadow: 0 0 10px var(--secondary-color); border: 2px solid var(--secondary-color);">+</button>
     </div>
     <div class="flex flex-col items-center justify-center w-full max-w-4xl mx-auto">
-        <h1 class="text-4xl font-bold mb-8 accent-backdrop text-center" style="margin-top: 6rem;">Vibe Soundboard</h1>
+        <h1 class="text-5xl font-bold mb-8 accent-backdrop text-center subpixel-antialiased" style="margin-top: 6rem;">Vibe Soundboard</h1>
         <canvas id="waveformCanvas"></canvas>
         <div id="soundButtons" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-8  max-w-4xl justify-center"></div>
     </div>
@@ -33,7 +33,7 @@
     </div>
 
     <script type="module" src="./src/main.js"></script>
-    <div class="fixed bottom-0 left-0 w-full h-1 bg-accent rounded-full"></div>
+    <div class="fixed bottom-0 left-0 w-full h-2 bg-accent rounded-full" style="background-color: var(--accent-color); box-shadow: 0 0 40px 15px var(--accent-color);"></div>
     <div class="fixed bottom-4 left-0 w-full text-center text-gray-400 opacity-50">hold a pad to loop</div>
 </body>
 </html>

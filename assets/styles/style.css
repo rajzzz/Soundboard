@@ -1,16 +1,18 @@
 :root {
     --primary-color: #F2F2F2; /* background */
     --secondary-color: #000000;; /* buttons, waveform */
-    --accent-color: rgb(244, 155, 107); /* button border */
+    --accent-color: rgb(247, 145, 91); /* button border */
 }
 
 .glow {
     box-shadow: 0 0 40px var(--accent-color);
-    transition: box-shadow 0.2s ease-in-out;
+    transition: all 0.2s ease-in-out;
+    border-color: var(--secondary-color);
 }
 
 .glow.active {
     box-shadow: 0 0 120px var(--accent-color);
+    transform: scale(1.05);
 }
 #waveformCanvas {
     background-color: var(--primary-color);
@@ -27,6 +29,7 @@
     font-size: 1.25rem;
     font-weight: 600;
     padding: 1rem 2rem;
+    transition: background-color 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
     transition: box-shadow 0.2s, border-color 0.2s;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
@@ -37,6 +40,9 @@
 body {
     color: var(--secondary-color);
     background: linear-gradient(180deg, #dfe7d8 10%, #ebdebc 40% );
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 .accent-backdrop {
     position: relative;
@@ -45,6 +51,9 @@ body {
     /* Right and bottom accent shadow */
     text-shadow:
         2px 1.5px 0 var(--accent-color);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 .accent-backdrop-active {
@@ -115,7 +124,9 @@ input[type="radio"]:checked {
 .sound-btn.looping {
     transform: scale(1.2);
     background-color: var(--accent-color);
-    box-shadow: 0 0 20px var(--accent-color);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 30px var(--accent-color), 0 0 60px var(--accent-color);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sound-btn.filling {

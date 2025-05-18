@@ -58,7 +58,7 @@ classDiagram
 
 ```mermaid
 graph TD
-    A[index.html] --> B[style.css]
+    A[index.html] --> B[assets/styles/style.css]
     A --> C[js/main.js]
     C --> D[js/Soundboard.js]
     D --> E[js/BPM.js]

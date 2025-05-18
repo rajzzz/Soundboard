@@ -1,6 +1,6 @@
 import BPM from './BPM.js';
-import GlowBar from '../visualizers/GlowBar.js';
-import Looping from '../audio/Looping.js';
+import GlowBar from './GlowBar.js';
+import Looping from './Looping.js';
 
 export class Soundboard {
     constructor(soundButtonsDiv, visualizer) {
@@ -31,7 +31,7 @@ export class Soundboard {
                 const allButtons = document.querySelectorAll('.sound-btn');
                 let isOtherButtonPressed = false;
                 allButtons.forEach(otherButton => {
-                    if (otherButton !== button && otherButton.classList.contains('looping')) {
+                    if (otherButton !== button && document.activeElement === otherButton) {
                         isOtherButtonPressed = true;
                     }
                 });
@@ -54,33 +54,19 @@ export class Soundboard {
                         this.toggleLoop(sound.id, button);
                         button.classList.remove('filling');
                     }
-                }, 10);
-
-                // Add glow effect for button press
-                button.classList.add('glow');
-                setTimeout(() => {
-                    if (!button.classList.contains('looping')) {
-                        button.classList.remove('glow');
-                    }
-                }, 200);
+                }, 10); // Update every 1-second fill
             });
 
             button.addEventListener('mouseup', () => {
                 clearInterval(holdTimer);
                 button.classList.remove('filling');
-                button.style.background = '';
-                if (!button.classList.contains('looping')) {
-                    button.classList.remove('glow');
-                }
+                button.style.background = ''; // Reset background
             });
 
             button.addEventListener('mouseleave', () => {
                 clearInterval(holdTimer);
                 button.classList.remove('filling');
-                button.style.background = '';
-                if (!button.classList.contains('looping')) {
-                    button.classList.remove('glow');
-                }
+                button.style.background = ''; // Reset background
             });
 
             const container = document.createElement('div');
@@ -108,10 +94,14 @@ export class Soundboard {
         if (button.classList.contains('looping')) {
             this.clearLoop();
             button.classList.remove('looping');
+            button.style.transform = ''; // Reset size
+            button.style.backgroundColor = ''; // Reset color
         } else {
             this.clearLoop();
             this.setupLoop(soundId, this.glowBar);
             button.classList.add('looping');
+            button.style.transform = 'scale(1.2)'; // Size up
+            button.style.backgroundColor = 'var(--accent-color)'; // Make colorful
         }
     }
 
@@ -169,10 +159,17 @@ export class Soundboard {
                     }, 10);
                 }
 
-                // Add quick glow effect for keypress
-                button.classList.add('glow');
+                // Preserve existing box-shadow and add accent ring
+                const prevBoxShadow = button.style.boxShadow || window.getComputedStyle(button).boxShadow || '';
+                button.style.boxShadow = `${prevBoxShadow ? prevBoxShadow + ',' : ''}0 0 0 4px var(--accent-color)`;
                 setTimeout(() => {
-                    button.classList.remove('glow');
+                    // Remove only the accent ring, keep any other box-shadow
+                    const current = button.style.boxShadow.split(',').filter(s => !s.includes('var(--accent-color)')).join(',');
+                    if (current.trim()) {
+                        button.style.boxShadow = current;
+                    } else {
+                        button.style.removeProperty('boxShadow');
+                    }
                 }, 200);
             }
         });
