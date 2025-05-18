@@ -58,7 +58,7 @@ export class WaveformVisualizer {
         // Normalize the frame
         const min = Math.min(...dataFrame);
         const max = Math.max(...dataFrame);
-        let normFrame = dataFrame.map(v => (max - min) > 0 ? (v - min) / (max - min) : 0.5);
+        let normFrame = dataFrame.map(v => (max - min) > 0 ? (v - min) / (max - min) : 0);
 
         // Apply a moving average to smooth the curve
         const windowSize = 7; // Increase for more smoothness
@@ -82,7 +82,7 @@ export class WaveformVisualizer {
         for (let i = 0; i < numPoints; i++) {
             const x = i * xSpacing;
             const amplitude = normFrame[i]; // 0 is bottom, 1 is top
-            const y = canvas.height - amplitude * canvas.height * 0.8; // baseline at bottom
+            const y = canvas.height - amplitude // baseline at bottom
             points.push({ x, y });
         }
 
@@ -292,7 +292,7 @@ export class WaveformVisualizer {
         const fill = secondary + '33';
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const numPoints = dataFrame.length;
-        const ySpacing = canvas.height / (numPoints - 1);
+        const ySpacing = canvas.height / (numPoints -1);
 
         // Normalize the frame
         const min = Math.min(...dataFrame);
@@ -300,22 +300,6 @@ export class WaveformVisualizer {
         let normFrame = dataFrame.map(v => (max - min) > 0 ? (v - min) / (max - min) : 0.5);
 
         // Smoothing
-        const windowSize = 7;
-        if (normFrame.length > windowSize) {
-            const smoothed = [];
-            for (let i = 0; i < normFrame.length; i++) {
-                let sum = 0, count = 0;
-                for (let j = -Math.floor(windowSize/2); j <= Math.floor(windowSize/2); j++) {
-                    const idx = i + j;
-                    if (idx >= 0 && idx < normFrame.length) {
-                        sum += normFrame[idx];
-                        count++;
-                    }
-                }
-                smoothed.push(sum / count);
-            }
-            normFrame = smoothed;
-        }
 
         // Points for vertical waveform
         const points = [];
@@ -325,10 +309,10 @@ export class WaveformVisualizer {
             let x;
             if (orientation === 'left') {
                 // Baseline is exactly at the left edge (x=0)
-                x = 0 + normFrame[i] * (canvas.width - 1); // full width minus 1px for anti-aliasing
+                x = 0 + (normFrame[i]*0.4) * (canvas.width - 1); // full width minus 1px for anti-aliasing
             } else {
                 // Baseline is exactly at the right edge (x=canvas.width)
-                x = canvas.width - normFrame[i] * (canvas.width - 1);
+                x = canvas.width - (normFrame[i]*0.4) * (canvas.width - 1);
             }
             points.push({ x, y });
         }

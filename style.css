@@ -1,7 +1,7 @@
 :root {
-    --primary-color: #C5EFCB; /* background */
-    --secondary-color: #020402;; /* buttons, waveform */
-    --accent-color: #FEA520; /* button border */
+    --primary-color: #F2F2F2; /* background */
+    --secondary-color: #000000;; /* buttons, waveform */
+    --accent-color: #B6B09F; /* button border */
 }
 #waveformCanvas {
     background-color: var(--primary-color);
@@ -27,4 +27,29 @@
 }
 body {
     color: var(--secondary-color);
+    background: linear-gradient(180deg, #dfe7d8 10%, #ebdebc 40% );
+}
+.accent-backdrop {
+    position: relative;
+    z-index: 1;
+    color: var(--secondary-color);
+    /* Right and bottom accent shadow */
+    text-shadow:
+        2px 1.5px 0 var(--accent-color);
+}
+.accent-backdrop::before {
+    display: none;
+}
+@keyframes shake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 1px); }
+  40% { transform: translate(-1.5px, -1px); }
+  60% { transform: translate(1.5px, 1px); }
+  80% { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.shake {
+  animation: shake 0.25s cubic-bezier(.36,.07,.19,.97) both;
+  will-change: transform;
 }

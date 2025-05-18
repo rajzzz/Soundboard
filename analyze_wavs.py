@@ -77,11 +77,22 @@ def analyze_wav(filepath):
     interp_frames = interpolate_frames(frames, factor=2)
     # B-spline smoothing to 128 points per frame (ultra-smooth)
     smooth_frames = smooth_bspline(interp_frames, num_points=128)
+    # Moving average smoothing (do this before normalization)
+    smoothed_frames = moving_average(smooth_frames, window_size=7)
     # Normalize
-    norm_frames = normalize_frames(smooth_frames)
-    # Moving average smoothing
-    final_frames = moving_average(norm_frames, window_size=7)
-    return final_frames
+    norm_frames = normalize_frames(smoothed_frames)
+
+    # Fade first and last N frames to silence (all zeros)
+    N = min(10, len(norm_frames)//2)
+    n_bins = len(norm_frames[0])
+    for i in range(N):
+        fade = i / N
+        norm_frames[i] = [(1-fade)*v for v in norm_frames[i]]
+        norm_frames[-(i+1)] = [(1-fade)*v for v in norm_frames[-(i+1)]]
+    # Ensure first and last frames are exactly zero
+    norm_frames[0] = [0.0]*n_bins
+    norm_frames[-1] = [0.0]*n_bins
+    return norm_frames
 
 result = {}
 for fname in os.listdir(AUDIO_DIR):

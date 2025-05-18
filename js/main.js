@@ -39,6 +39,7 @@ function setupSoundboard() {
                     visualizer.blendTo(precomputedData[sound.id]);
                     animateVerticalWaveforms(precomputedData[sound.id]);
                 }
+                // Shake logic removed
             });
         }
         if (audio) {

@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 <body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen p-4" style="background-color: var(--primary-color);">
-    <h1 class="text-4xl font-bold mb-8">Vibe Soundboard</h1>
+    <h1 class="text-4xl font-bold mb-8 accent-backdrop">Vibe Soundboard</h1>
     <canvas id="waveformCanvas"></canvas>
     <div id="soundButtons" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8 w-full max-w-4xl"></div>
 
@@ -18,14 +18,10 @@
     <audio id="Clap" src="sounds/sample/Clap.wav"></audio>
 
     <div class="fixed left-0 top-0 h-full flex items-center z-10 pointer-events-none">
-        <canvas id="leftWavefront" width="96" height="1000" style="height: 100vh; width: 96px; background: transparent;"></canvas>
+        <canvas id="leftWavefront" width="100%" height="900" style="height: 100vh; width: 96px; background: transparent;"></canvas>
     </div>
     <div class="fixed right-0 top-0 h-full flex items-center z-10 pointer-events-none">
-        <canvas id="rightWavefront" width="96" height="1000" style="height: 100vh; width: 96px; background: transparent;"></canvas>
-    </div>
-
-    <div style="position:fixed; left:0; right:0; bottom:0; height:48px; pointer-events:none; z-index:20; display:flex; justify-content:center; align-items:flex-end;">
-        <div style="width:100%; height:10px; filter:blur(3px); background:radial-gradient(ellipse at center, var(--accent-color) 80%, transparent 100%); opacity:0.7;"></div>
+        <canvas id="rightWavefront" width="100%" height="900" style="height: 100vh; width: 96px; background: transparent;"></canvas>
     </div>
 
     <script type="module" src="./js/main.js"></script>
